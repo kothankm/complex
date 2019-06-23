@@ -1,0 +1,35 @@
+sudo: required
+services:
+  - docker
+
+before_install:
+  - docker build -t kothankm/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run kothankm/react-test npm test -- --coverage
+
+after_success:
+  - docker build -t kothankm/multi-client ./client
+  - docker build -t kothankm/multi-nginx ./nginx
+  - docker build -t kothankm/multi-server ./server
+  - docker build -t kothankm/multi-worker ./worker
+  # Log in to the docker CLI
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+  # Take those images and push them to docker hub
+  - docker push kothankm/multi-client
+  - docker push kothankm/multi-nginx
+  - docker push kothankm/multi-server
+  - docker push kothankm/multi-worker
+
+deploy:
+  provider: elasticbeanstalk
+  region: us-west-1
+  app: multi-docker
+  env: MultiDocker-env
+  bucket_name: elasticbeanstalk-us-west-1-306476627547
+  bucket_path: docker-multi
+  on:
+    branch: master
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key:
+    secure: $AWS_SECRET_KEY
